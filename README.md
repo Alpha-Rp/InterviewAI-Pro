@@ -129,22 +129,9 @@ See `.env.local.example` for all required variables.
    npm install	npm install
 
 **© 2025 Prajwal. All rights reserved.**
-
+    AI-powered voice interview platform for job seekers. Practice with realistic interviews, get instant AI feedback, and ace your next job opportunity.
    ```	```
 
-3. **Set up environment variables:**3. **Set up environment variables:**
-
-   - Copy `.env.local.example` to `.env.local` and fill in your keys:	- Copy `.env.local.example` to `.env.local` and fill in your keys:
-
-     - `GOOGLE_GENERATIVE_AI_API_KEY` (Gemini)	  - `GOOGLE_GENERATIVE_AI_API_KEY` (Gemini)
-
-     - `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` (Firebase Admin)	  - `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` (Firebase Admin)
-
-     - `NEXT_PUBLIC_VAPI_PUBLIC_KEY` (Vapi)	  - Any other required keys
-
-     - Any other required keys4. **Run locally:**
-
-4. **Run locally:**	```bash
 
    ```bash	npm run dev
 
@@ -178,10 +165,8 @@ types/          # TypeScript types```
 
 ```
 
-## 📝 Environment Variables
 
 ## 📝 Environment Variables
-
 See `.env.local.example` for all required variables.
 
 See `.env.local.example` for all required variables.
