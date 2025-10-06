@@ -129,3 +129,23 @@ export async function isAuthenticated() {
     return !!user;
 }
 
+export async function signOut() {
+    'use server';
+    
+    try {
+        const cookieStore = await cookies();
+        cookieStore.delete('session');
+        
+        return {
+            success: true,
+            message: 'Signed out successfully'
+        };
+    } catch (e) {
+        console.error('Error signing out:', e);
+        return {
+            success: false,
+            message: 'Failed to sign out'
+        };
+    }
+}
+
