@@ -5,7 +5,7 @@ import Image from "next/image"
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {vapi} from '@/lib/vapi.sdk'
-import { generator, interviewer } from "@/constants";
+import { createGeneratorConfig, interviewer } from "@/constants";
 import { createFeedback } from "@/lib/actions/general.action";
 
 
@@ -29,7 +29,6 @@ const Agent = ({userName, userId, type, interviewId, questions}: AgentProps) => 
     const [isSpeaking, setIsSpeaking] = useState(false);
     const [callStatus, setCallStatus] = useState<CallStatus>(CallStatus.INACTIVE);
     const [messages, setMessages] = useState<SavedMessage[]>([]);
-    const [shouldAutoEnd, setShouldAutoEnd] = useState(false);
 
     
 
@@ -41,7 +40,7 @@ const Agent = ({userName, userId, type, interviewId, questions}: AgentProps) => 
   const onCallStart = () => setCallStatus(CallStatus.ACTIVE);
   const onCallEnd = () => setCallStatus(CallStatus.FINISHED);
 
-  const onMessage = (message: Message) => {
+    const onMessage = (message: any) => {
     if (message.type === "transcript" && message.transcriptType === "final") {
       const newMessage = { role: message.role, content: message.transcript };
       setMessages((prev) => [...prev, newMessage]);
@@ -51,18 +50,31 @@ const Agent = ({userName, userId, type, interviewId, questions}: AgentProps) => 
           (message.transcript.toLowerCase().includes("goodbye") || 
            message.transcript.toLowerCase().includes("good luck"))) {
         console.log("AI said goodbye, ending call in 3 seconds...");
-        setShouldAutoEnd(true);
         setTimeout(() => {
           console.log("Auto-ending call now");
           vapi.stop();
         }, 3000);
       }
     }
+
+        if (message.type === "status-update" && message.status === "ended") {
+            setCallStatus(CallStatus.FINISHED);
+        }
   };
 
   const onSpeechStart = () => setIsSpeaking(true);
   const onSpeechEnd = () => setIsSpeaking(false);
-  const onError = (error: Error) => console.log("Error", error);
+    const onError = (error: Error) => {
+        console.log("Error", error);
+        if (callStatus === CallStatus.CONNECTING) {
+            setCallStatus(CallStatus.INACTIVE);
+        }
+    };
+
+    const onCallStartFailed = (event: any) => {
+        console.error("Vapi call start failed:", event);
+        setCallStatus(CallStatus.INACTIVE);
+    };
 
   // 📞 Register Vapi event listeners
   vapi.on("call-start", onCallStart);
@@ -71,6 +83,7 @@ const Agent = ({userName, userId, type, interviewId, questions}: AgentProps) => 
   vapi.on("speech-start", onSpeechStart);
   vapi.on("speech-end", onSpeechEnd);
   vapi.on("error", onError);
+    vapi.on("call-start-failed", onCallStartFailed);
 
   // 🧹 Cleanup
   return () => {
@@ -80,8 +93,9 @@ const Agent = ({userName, userId, type, interviewId, questions}: AgentProps) => 
     vapi.off("speech-start", onSpeechStart);
     vapi.off("speech-end", onSpeechEnd);
     vapi.off("error", onError);
+        vapi.off("call-start-failed", onCallStartFailed);
   };
-}, []);
+}, [callStatus]);
 
     const handleGenerateFeedback = async (messages: SavedMessage[]) => {
         console.log ('Generate feed back here')
@@ -173,74 +187,13 @@ const Agent = ({userName, userId, type, interviewId, questions}: AgentProps) => 
 
     if (type === "generate") {
       try {
-        console.log("Starting call to collect interview preferences");
-        
-        // Simple assistant that collects info and ends naturally
-        await vapi.start({
-          name: "Interview Prep Assistant",
-          transcriber: {
-            provider: "deepgram",
-            model: "nova-2",
-            language: "en",
-          },
-          voice: {
-            provider: "11labs",
-            voiceId: "sarah",
-          },
-          model: {
-            provider: "openai",
-            model: "gpt-4o-mini",
-            messages: [
-              {
-                role: "system",
-                content: `You are a friendly interview prep assistant helping ${userName} create a personalized interview session.
+                const call = await vapi.start(createGeneratorConfig(userName ?? "there"));
 
-Your job:
-1. Ask these 5 questions ONE BY ONE (wait for clear answer before moving to next):
-   
-   a) "What role are you preparing for?" 
-      (Get answer like: Frontend Developer, Backend Engineer, Full Stack, etc.)
-   
-   b) "What's your experience level?"
-      (Get answer like: Junior, Mid-level, or Senior)
-   
-   c) "What technologies do you want to focus on?"
-      (Get comma-separated list like: React, Node.js, TypeScript)
-   
-   d) "What type of interview questions do you prefer?"
-      (Get answer like: Technical, Behavioral, or Mixed)
-   
-   e) "How many questions would you like?"
-      (Get a number like: 5, 10, or 15)
-
-2. After collecting ALL 5 answers clearly, say:
-   "Perfect! I have all the information I need. Your personalized interview prep session will be ready in just a moment. Thank you ${userName}, and good luck with your preparation! Goodbye!"
-
-3. IMPORTANT: After saying goodbye, IMMEDIATELY say "endCall" to end the conversation.
-
-Be conversational, patient, and make sure you get clear answers for each question. Once you have all 5 answers, deliver your final message and say "endCall".`,
-              },
-            ],
-          },
-          firstMessage: `Hey ${userName}! I'm excited to help you prepare for your interview. I'll ask you just 5 quick questions to create the perfect prep session for you. Ready? Let's start - what role are you preparing for?`,
-          endCallMessage: "Thank you for using InterviewAI Pro! Your interview prep session is being generated. Goodbye!",
-        } as any);
+                if (!call) {
+                    setCallStatus(CallStatus.INACTIVE);
+                }
       } catch (error: any) {
         console.error("Vapi start error:", error);
-        console.error("Error details:", {
-          message: error?.message,
-          status: error?.status,
-          statusText: error?.statusText,
-        });
-        
-        if (error?.response) {
-          error.response.json().then((body: any) => {
-            console.error("Error response body:", body);
-          }).catch(() => {
-            console.error("Could not parse error response");
-          });
-        }
-        
         setCallStatus(CallStatus.INACTIVE);
       }
     } else {
@@ -251,11 +204,15 @@ Be conversational, patient, and make sure you get clear answers for each questio
           .join("\n");
       }
 
-      await vapi.start(interviewer, {
+            const call = await vapi.start(interviewer, {
         variableValues: {
           questions: formattedQuestions,
         }
       });
+
+            if (!call) {
+                setCallStatus(CallStatus.INACTIVE);
+            }
     }
   };
 

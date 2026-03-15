@@ -154,6 +154,58 @@ End the conversation on a polite and positive note.
   }
 };
 
+export const createGeneratorConfig = (userName: string): CreateAssistantDTO => ({
+  name: "Interview Prep Assistant",
+  firstMessage: `Hey ${userName}! I'm excited to help you prepare for your interview. I'll ask you just 5 quick questions to create the perfect prep session for you. Ready? Let's start — what role are you preparing for?`,
+  transcriber: {
+    provider: "deepgram",
+    model: "nova-2",
+    language: "en",
+  },
+  voice: {
+    provider: "11labs",
+    voiceId: "sarah",
+    stability: 0.4,
+    similarityBoost: 0.8,
+    speed: 0.9,
+    style: 0.5,
+    useSpeakerBoost: true,
+  },
+  model: {
+    provider: "openai",
+    model: "gpt-4o-mini",
+    messages: [
+      {
+        role: "system",
+        content: `You are a friendly interview prep assistant helping ${userName} create a personalized interview session.
+
+Your job:
+1. Ask these 5 questions ONE BY ONE (wait for a clear answer before moving to the next):
+
+   a) "What role are you preparing for?"
+      (e.g. Frontend Developer, Backend Engineer, Full Stack)
+
+   b) "What's your experience level?"
+      (Junior, Mid-level, or Senior)
+
+   c) "What technologies do you want to focus on?"
+      (comma-separated list, e.g. React, Node.js, TypeScript)
+
+   d) "What type of interview questions do you prefer?"
+      (Technical, Behavioral, or Mixed)
+
+   e) "How many questions would you like?"
+      (a number like 5, 10, or 15)
+
+2. After collecting ALL 5 answers, say exactly:
+   "Perfect! I have everything I need. Your personalized interview session will be ready in just a moment. Good luck ${userName}! Goodbye!"
+
+Be conversational and patient. Keep each response short — this is a voice conversation.`,
+      },
+    ],
+  },
+});
+
 export const feedbackSchema = z.object({
   totalScore: z.number(),
   categoryScores: z.tuple([
@@ -228,221 +280,3 @@ export const dummyInterviews: Interview[] = [
   },
 ];
 
-export const generator: any = {
-  "name": "jsm_interview_prep",
-  "transcriber": {
-    "provider": "deepgram",
-    "model": "nova-2",
-    "language": "en"
-  },
-  "voice": {
-    "provider": "deepgram",
-    "voiceId": "aura-asteria-en"
-  },
-  "model": {
-    "provider": "openai",
-    "model": "gpt-4o",
-    "messages": [
-      {
-        "role": "system",
-        "content": "You are a helpful voice assistant helping users create AI interview prep sessions. Collect the following information: job role, experience level, number of questions, technology stack, and interview type. Ask questions one by one and wait for responses."
-      }
-    ]
-  },
-  "firstMessage": "Hey! So ready to prepare the interview? I'll need to collect some information from you to create the perfect interview session.",
-  "workflow": {
-    "name": "jsm_interview_prep",
-    "nodes": [
-      {
-        "name": "introduction",
-        "type": "conversation",
-        "isStart": true,
-        "metadata": {
-          "position": {
-            "x": 25.493896484375,
-            "y": 24.03173828125
-          }
-        },
-        "prompt": "Greet the user. Inform that you will get some information from them to create a perfect interview. Ask the caller for the data required to extract. Ask the question one by one and await an answer",
-        "variableExtractionPlan": {
-          "output": [
-            {
-              "enum": [],
-              "type": "string",
-              "title": "level",
-              "description": "The job experience level"
-            },
-            {
-              "enum": [],
-              "type": "string",
-              "title": "amount",
-              "description": "How many questions would you like to generate?"
-            },
-            {
-              "enum": [],
-              "type": "string",
-              "title": "techstack",
-              "description": "A list of technologies to cover during the job interview. For example, React, Next.js, Express.js, Node and so on…"
-            },
-            {
-              "enum": [],
-              "type": "string",
-              "title": "role",
-              "description": "What role should would you like to train for? For example Frontend, Backend, Fullstack, Design, UX?"
-            },
-            {
-              "enum": [],
-              "type": "string",
-              "title": "type",
-              "description": "What type of the interview should it be?"
-            }
-          ]
-        },
-        "messagePlan": {
-          "firstMessage": "Hey! So ready to prepare the interview?"
-        },
-        "toolIds": []
-      },
-      {
-        "name": "API Request",
-        "type": "tool",
-        "metadata": {
-          "position": {
-            "x": 25.493896484375,
-            "y": 887.0164566040039
-          }
-        },
-        "tool": {
-          "url": `${process.env.NEXT_PUBLIC_BASE_URL}api/vapi/generate`,
-          "body": {
-            "type": "object",
-            "required": [
-              "role",
-              "level",
-              "amount",
-              "techstack",
-              "type"
-            ],
-            "properties": {
-              "role": {
-                "type": "string",
-                "default": "{{role}}",
-                "description": ""
-              },
-              "type": {
-                "type": "string",
-                "default": "{{type}}",
-                "description": ""
-              },
-              "level": {
-                "type": "string",
-                "default": "{{level}}",
-                "description": ""
-              },
-              "amount": {
-                "type": "string",
-                "default": "{{amount}}",
-                "description": ""
-              },
-              "techstack": {
-                "type": "string",
-                "default": "{{techstack}}",
-                "description": ""
-              },
-              "userid": {
-                "type": "string",
-                "default": "{{userid}}",
-                "description": ""
-              }
-            }
-          },
-          "name": "getUserData",
-          "type": "apiRequest",
-          "method": "POST",
-          "function": {
-            "name": "api_request_tool",
-            "parameters": {
-              "type": "object",
-              "required": [],
-              "properties": {}
-            },
-            "description": "API request tool"
-          },
-          "messages": [
-            {
-              "type": "request-start",
-              "content": "Please hold on. I'm sending a request to the app",
-              "blocking": true
-            },
-            {
-              "role": "assistant",
-              "type": "request-complete",
-              "content": "The request has been sent and your interview has been generated. Thank you for the call! Bye!",
-              "endCallAfterSpokenEnabled": true
-            },
-            {
-              "type": "request-failed",
-              "content": "Oops! Looks like something went wrong while sending the data to the app. Please try again",
-              "endCallAfterSpokenEnabled": true
-            }
-          ],
-          "variableExtractionPlan": {
-            "schema": {
-              "type": "object",
-              "required": [],
-              "properties": {}
-            },
-            "aliases": []
-          }
-        }
-      },
-      {
-        "name": "hangup_1759578869678",
-        "type": "tool",
-        "metadata": {
-          "position": {
-            "x": 25.493896484375,
-            "y": 1597.0597686767578
-          }
-        },
-        "tool": {
-          "type": "endCall",
-          "function": {
-            "name": "untitled_tool",
-            "parameters": {
-              "type": "object",
-              "required": [],
-              "properties": {}
-            }
-          },
-          "messages": [
-            {
-              "type": "request-start",
-              "content": "Everything has been generated. I'll redirect you to the dashboard now, thanks for the call",
-              "blocking": true
-            }
-          ]
-        }
-      }
-    ],
-    "edges": [
-      {
-        "from": "introduction",
-        "to": "API Request",
-        "condition": {
-          "type": "ai",
-          "prompt": "if user provides all required variables"
-        }
-      },
-      {
-        "from": "API Request",
-        "to": "hangup_1759578869678",
-        "condition": {
-          "type": "ai",
-          "prompt": ""
-        }
-      }
-    ],
-    "globalPrompt": ""
-  }
-}
